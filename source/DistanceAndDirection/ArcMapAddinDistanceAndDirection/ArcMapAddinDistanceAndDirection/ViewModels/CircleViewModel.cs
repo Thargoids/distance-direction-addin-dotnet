@@ -21,6 +21,7 @@ using ESRI.ArcGIS.Display;
 using DistanceAndDirectionLibrary;
 using ESRI.ArcGIS.ArcMapUI;
 using ESRI.ArcGIS.Carto;
+using System.Collections.Generic;
 
 namespace ArcMapAddinDistanceAndDirection.ViewModels
 {
@@ -299,6 +300,13 @@ namespace ArcMapAddinDistanceAndDirection.ViewModels
                     if (CircleType == CircleFromTypes.Diameter)
                         d /= 2.0;
 
+                    // Prevent creation of circle that is larger than the world
+                    // Convert into kilometers taking units into account
+                    if (d > 20075)
+                    {
+                        throw new ArgumentException(DistanceAndDirectionLibrary.Properties.Resources.AEInvalidInput);
+                    }
+
                     Distance = d;
 
                     UpdateFeedbackWithGeoCircle();
@@ -401,6 +409,161 @@ namespace ArcMapAddinDistanceAndDirection.ViewModels
             }
         }
 
+        // Where a circle crosses dateline on one side, split and return as two separate parts, otherwise return original geometry
+        private List<IGeometry> GetDatelineAwareGeometry(IGeometry construct)
+        {
+            IGeometry constructIGeom = construct as IGeometry;
+
+            // Determine what case we are looking at
+            Boolean beyondRightEdge = false;
+            Boolean beyondLeftEdge = false;
+            int pts = (constructIGeom as IPointCollection).PointCount;
+            for (int i = 0; i < pts; i++)
+            {
+                double ptX = (constructIGeom as IPointCollection).get_Point(i).X;
+                if (ptX > 180)
+                {
+                    beyondRightEdge = true;
+                }
+                if (ptX < -180)
+                {
+                    beyondLeftEdge = true;
+                }
+            }
+
+            Point2 = (construct as IPolyline).ToPoint;
+            var color = new RgbColorClass() as IColor;
+
+            // Handle case
+            if (!beyondLeftEdge && !beyondRightEdge)
+            {
+                // No overlap, or overlaps both, return original geometry
+                return new List<IGeometry>() { construct as IGeometry };
+            }
+            else
+            {
+                // Either circle overlaps on the right hand side of the world, or on the left hand side of the world
+                // shift points as appropriate
+                IGeometry easternEdge = new Polyline() as IGeometry;
+                IGeometry westernEdge = new Polyline() as IGeometry;
+
+                if (beyondRightEdge)
+                {
+                    for (int i = 0; i < pts; i++)
+                    {
+                        IPoint pt = (constructIGeom as IPointCollection).get_Point(i);
+                        {
+                            if (pt.X > 180)
+                            {
+                                IPoint ptShifted = new Point();
+                                ptShifted.Y = pt.Y;
+                                // The actual shift of the point happens here
+                                ptShifted.X = pt.X - 360;
+                                (westernEdge as IPointCollection).AddPoint(ptShifted);
+                            }
+                            else
+                            {
+                                (easternEdge as IPointCollection).AddPoint(pt);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < pts; i++)
+                    {
+                        IPoint pt = (constructIGeom as IPointCollection).get_Point(i);
+                        {
+                            if (pt.X < -180)
+                            {
+                                IPoint ptShifted = new Point();
+                                ptShifted.Y = pt.Y;
+                                // The actual shift of the point happens here
+                                ptShifted.X = pt.X + 360;
+                                (easternEdge as IPointCollection).AddPoint(ptShifted);
+                            }
+                            else
+                            {
+                                (westernEdge as IPointCollection).AddPoint(pt);
+                            }
+                        }
+                    }
+                }
+
+                // Ensure both portions of the divided circle meet the dateline, as they should
+                int xVal = -180;
+                foreach (var edge in new List<IPointCollection>(){westernEdge as IPointCollection, easternEdge as IPointCollection})
+                {
+                    double minY = 0, maxY = 0;
+                    List<int> maxYIndices = new List<int>(), minYIndices = new List<int>();
+
+                    // Find the min and max Y values
+                    for (int k = 0; k < (edge).PointCount; k++)
+                    {
+                        double ptY = (edge).get_Point(k).Y;
+
+                        if (ptY < minY)
+                        {
+                            minY = ptY;
+                        }
+                        if (ptY > maxY)
+                        {
+                            maxY = ptY;
+                        }
+                    }
+
+                    // Just in case more than one point shares the same min y, or more than one point shares the same max y
+                    // find the indices of the points with min and max y
+                    for (int k = 0; k < (edge).PointCount; k++)
+                    {
+                        double ptY = (edge).get_Point(k).Y;
+
+                        if (ptY == minY)
+                        {
+                            minYIndices.Add(k);
+                        }
+                        if (ptY == maxY)
+                        {
+                            maxYIndices.Add(k);
+                        }
+                    }
+
+                    // Loop over the points with min and max y setting these points' x to 180
+                    // We always want the highest and lowest points to be on the dateline,
+                    // thus a forceful approach is valid
+                    foreach (var yLimitList in new List<List<int>>(){minYIndices, maxYIndices})
+                    {
+                        foreach (int j in yLimitList)
+                        {
+                            IPoint updatedPoint = new Point();
+                            updatedPoint.X = xVal;
+                            updatedPoint.Y = (edge).get_Point(j).Y;
+                            (edge).UpdatePoint(j, updatedPoint);
+                        }
+                    }
+                    
+                    // Update for second iteration which will use easternEdge
+                    xVal = 180;
+                }
+ 
+                // Ensure our lines' start and end points are the same in order to end up with a closed polygon
+                IPoint firstPointE = (easternEdge as IPointCollection).get_Point(0);
+                IPoint lastPointE = (easternEdge as IPointCollection).get_Point((easternEdge as IPointCollection).PointCount - 1);
+                if (firstPointE.X != lastPointE.X || firstPointE.Y != lastPointE.X)
+                {
+                    (easternEdge as IPointCollection).AddPoint(firstPointE);
+                }
+                IPoint firstPointW = (westernEdge as IPointCollection).get_Point(0);
+                IPoint lastPointW = (westernEdge as IPointCollection).get_Point((westernEdge as IPointCollection).PointCount - 1);
+                if (firstPointW.X != lastPointW.X || firstPointW.Y != lastPointW.X)
+                {
+                    (westernEdge as IPointCollection).AddPoint(firstPointW);
+                }
+                
+                return new List<IGeometry>() { easternEdge as IGeometry, westernEdge as IGeometry };
+            }
+        }
+
         private void UpdateFeedbackWithGeoCircle()
         {
             if (Point1 == null || Distance <= 0.0)
@@ -411,10 +574,26 @@ namespace ArcMapAddinDistanceAndDirection.ViewModels
             {
                 ClearTempGraphics();
                 AddGraphicToMap(Point1, new RgbColor() { Green = 255 } as IColor, true);
-                construct.ConstructGeodesicCircle(Point1, GetLinearUnit(), Distance, esriCurveDensifyMethod.esriCurveDensifyByAngle, 0.45);
+
+                try
+                {
+                    construct.ConstructGeodesicCircle(Point1, GetLinearUnit(), Distance, esriCurveDensifyMethod.esriCurveDensifyByAngle, 0.45);
+                }
+                catch(Exception ex)
+                { 
+                    // We get an exception here for some reason
+                }
+
+                List<IGeometry> constructGeom = GetDatelineAwareGeometry(construct as IGeometry);
+
                 Point2 = (construct as IPolyline).ToPoint;
                 var color = new RgbColorClass() as IColor;
-                this.AddGraphicToMap(construct as IGeometry, color, true, rasterOpCode: esriRasterOpCode.esriROPNotXOrPen);
+
+                foreach(var geom in constructGeom)
+                {
+                    this.AddGraphicToMap(geom as IGeometry, color, true, rasterOpCode: esriRasterOpCode.esriROPNotXOrPen);
+                }
+
             }
         }
 
@@ -473,42 +652,46 @@ namespace ArcMapAddinDistanceAndDirection.ViewModels
                 if (construct != null)
                 {
                     construct.ConstructGeodesicCircle(Point1, GetLinearUnit(), Distance, esriCurveDensifyMethod.esriCurveDensifyByAngle, 0.01);
-                    //var color = new RgbColorClass() { Red = 255 } as IColor;
-                    this.AddGraphicToMap(construct as IGeometry);
 
-                    //Construct a polygon from geodesic polyline
-                    var newPoly = this.PolylineToPolygon((IPolyline)construct);
-                    if (newPoly != null)
+                    List<IGeometry> constructGeom = GetDatelineAwareGeometry(construct as IGeometry);
+
+                    foreach (var geom in constructGeom)
                     {
-                        //Get centroid of polygon
-                        var area = newPoly as IArea;
+                        this.AddGraphicToMap(geom as IGeometry);
 
-                        // Ensure we use the correct distance, dependent on whether we are in Radius or Diameter mode
-                        string distanceLabel;
-                        if (circleType == CircleFromTypes.Radius)
+                        //Construct a polygon from geodesic polyline
+                        var newPoly = this.PolylineToPolygon((IPolyline)geom);
+                        if (newPoly != null)
                         {
-                            distanceLabel = Math.Round(Distance, 2).ToString("N2");
+                            //Get centroid of polygon
+                            var area = newPoly as IArea;
+
+                            // Ensure we use the correct distance, dependent on whether we are in Radius or Diameter mode
+                            string distanceLabel;
+                            if (circleType == CircleFromTypes.Radius)
+                            {
+                                distanceLabel = Math.Round(Distance, 2).ToString("N2");
+                            }
+                            else
+                            {
+                                distanceLabel = Math.Round((Distance * 2), 2).ToString("N2");
+                            }
+
+                            //Add text using centroid point
+                            //Use circleType to ensure our label contains either Radius or Diameter dependent on mode
+                            DistanceTypes dtVal = (DistanceTypes)LineDistanceType; //Get line distance type
+                            this.AddTextToMap(area.Centroid, string.Format("{0}:{1} {2}",
+                                circleType,
+                                distanceLabel,
+                                dtVal.ToString()));
                         }
-                        else
-                        {
-                            distanceLabel = Math.Round((Distance * 2), 2).ToString("N2");
-                        }
-
-                        //Add text using centroid point
-                        //Use circleType to ensure our label contains either Radius or Diameter dependent on mode
-                        DistanceTypes dtVal = (DistanceTypes)LineDistanceType; //Get line distance type
-                        this.AddTextToMap(area.Centroid, string.Format("{0}:{1} {2}",
-                            circleType,
-                            distanceLabel,
-                            dtVal.ToString()));
-
-
                     }
 
                     Point2 = null;
                     HasPoint2 = false;
                     ResetFeedback();
                 }
+
                 return construct as IGeometry;
             }
             catch (Exception ex)
