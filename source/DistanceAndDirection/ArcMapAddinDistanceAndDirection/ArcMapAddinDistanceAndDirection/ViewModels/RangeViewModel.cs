@@ -55,35 +55,25 @@ namespace ArcMapAddinDistanceAndDirection.ViewModels
             }
         }
 
-        public bool IsToolActive
+        public override bool IsToolActive
         {
             get
             {
-                if (ArcMap.Application.CurrentTool != null)
-                    return ArcMap.Application.CurrentTool.Name == "Esri_ArcMapAddinDistanceAndDirection_MapPointTool";
-
-                return false;
+                return base.IsToolActive;
             }
-
             set
             {
-                if (value)
-                    OnActivateTool(null);
-                else
-                    if (ArcMap.Application.CurrentTool != null)
-                    {
-                        ArcMap.Application.CurrentTool = null;
-                        if (CanCreateElement)
-                            CreateMapElement();
+                base.IsToolActive = value;
 
-                        maxDistance = 0.0;
-                        if (IsInteractive)
-                            NumberOfRings = 0;
-                    }
+                if (CanCreateElement)
+                    CreateMapElement();
 
-                RaisePropertyChanged(() => IsToolActive);
+                maxDistance = 0.0;
+                if (IsInteractive)
+                    NumberOfRings = 0;
             }
         }
+
         // keep track of the max distance for drawing of radials in interactive mode
         double maxDistance = 0.0;
 
@@ -224,8 +214,9 @@ namespace ArcMapAddinDistanceAndDirection.ViewModels
                     AddGraphicToMap(construct as IGeometry);
 
                     // Use negative radius to get the location for the distance label
+                    DistanceTypes dtVal = (DistanceTypes)LineDistanceType;
                     construct.ConstructGeodesicCircle(Point1, GetLinearUnit(), -radius, esriCurveDensifyMethod.esriCurveDensifyByAngle, 0.001);
-                    this.AddTextToMap(construct as IGeometry, String.Format("{0} {1}{2}", radius.ToString(), GetLinearUnit().Name, "s"));
+                    this.AddTextToMap(construct as IGeometry, String.Format("{0} {1}", radius.ToString(), dtVal.ToString()));
                 }
 
                 return construct as IGeometry;

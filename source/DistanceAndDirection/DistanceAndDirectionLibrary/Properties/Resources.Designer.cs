@@ -259,7 +259,7 @@ namespace DistanceAndDirectionLibrary.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Geodesic.
+        ///   Looks up a localized string similar to Geodetic.
         /// </summary>
         public static string EnumGeodesic {
             get {
@@ -655,7 +655,7 @@ namespace DistanceAndDirectionLibrary.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unit.
+        ///   Looks up a localized string similar to Units.
         /// </summary>
         public static string LabelOrientationUnit {
             get {
@@ -691,7 +691,7 @@ namespace DistanceAndDirectionLibrary.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Distance Between Rings.
+        ///   Looks up a localized string similar to Distance between Rings.
         /// </summary>
         public static string LabelRangeRingsDistanceBetween {
             get {
@@ -754,7 +754,7 @@ namespace DistanceAndDirectionLibrary.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Lines.
+        ///   Looks up a localized string similar to Line.
         /// </summary>
         public static string LabelTabLines {
             get {

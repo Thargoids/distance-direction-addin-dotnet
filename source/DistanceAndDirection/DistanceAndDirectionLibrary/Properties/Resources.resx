@@ -184,7 +184,7 @@
     <value>Full</value>
   </data>
   <data name="EnumGeodesic" xml:space="preserve">
-    <value>Geodesic</value>
+    <value>Geodetic</value>
   </data>
   <data name="EnumGreatElliptic" xml:space="preserve">
     <value>Great Elliptic</value>
@@ -316,7 +316,7 @@
     <value>Orientation</value>
   </data>
   <data name="LabelOrientationUnit" xml:space="preserve">
-    <value>Unit</value>
+    <value>Units</value>
   </data>
   <data name="LabelRadius" xml:space="preserve">
     <value>Radius</value>
@@ -328,7 +328,7 @@
     <value>Center Point</value>
   </data>
   <data name="LabelRangeRingsDistanceBetween" xml:space="preserve">
-    <value>Distance Between Rings</value>
+    <value>Distance between Rings</value>
   </data>
   <data name="LabelRangeRingsNumberofRadials" xml:space="preserve">
     <value>Number of Radials</value>
@@ -349,7 +349,7 @@
     <value>Ellipse</value>
   </data>
   <data name="LabelTabLines" xml:space="preserve">
-    <value>Lines</value>
+    <value>Line</value>
   </data>
   <data name="LabelTabRange" xml:space="preserve">
     <value>Rings</value>
