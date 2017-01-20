@@ -414,6 +414,12 @@ namespace ArcMapAddinDistanceAndDirection.ViewModels
         {
             IGeometry constructIGeom = construct as IGeometry;
 
+            // Do not proceed any further if we are using a projection - wrapping will be handled automatically
+            if(construct.SpatialReference as ISpatialReference is IProjectedCoordinateSystem)
+            {
+                return new List<IGeometry>() { construct as IGeometry };
+            }
+            
             // Determine what case we are looking at
             Boolean beyondRightEdge = false;
             Boolean beyondLeftEdge = false;
