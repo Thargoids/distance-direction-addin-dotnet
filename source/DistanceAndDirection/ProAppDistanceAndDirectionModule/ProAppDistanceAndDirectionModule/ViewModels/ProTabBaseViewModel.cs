@@ -252,7 +252,11 @@ namespace ProAppDistanceAndDirectionModule.ViewModels
                 if (string.IsNullOrWhiteSpace(value))
                 {
                     point1Formatted = string.Empty;
+                    Point1 = null;
+                    HasPoint1 = false;
+                    ClearTempGraphics();
                     RaisePropertyChanged(() => Point1Formatted);
+
                     return;
                 }
                 // try to convert string to an IPoint
@@ -612,7 +616,7 @@ namespace ProAppDistanceAndDirectionModule.ViewModels
                 ClearTempGraphics();
                 Point1 = point;
                 HasPoint1 = true;
-                Point1Formatted = string.Empty;
+                //Point1Formatted = string.Empty;
 
                 AddGraphicToMap(Point1, ColorFactory.GreenRGB, null, true, 5.0);
 
